@@ -393,6 +393,10 @@ private:
   bool acceleration;
   double acc;
   double acc_restart_mean_;
+  bool cvhd;
+  unsigned cvhd_resetwait;
+  unsigned cvhd_resettime;
+  unsigned cvhd_event;
   bool calc_max_bias_;
   double max_bias_;
   bool calc_transition_bias_;
@@ -445,6 +449,7 @@ void MetaD::registerKeywords(Keywords& keys) {
   keys.addOutputComponent("rct","REWEIGHTING_NGRID","the reweighting factor \\f$c(t)\\f$.");
   keys.addOutputComponent("work","default","accumulator for work");
   keys.addOutputComponent("acc","ACCELERATION","the metadynamics acceleration factor");
+  keys.addOutputComponent("event","CVHD","the metadynamics acceleration factor");
   keys.addOutputComponent("maxbias", "CALC_MAX_BIAS", "the maximum of the metadynamics V(s, t)");
   keys.addOutputComponent("transbias", "CALC_TRANSITION_BIAS", "the metadynamics transition bias V*(t)");
   keys.use("ARG");
@@ -489,6 +494,8 @@ void MetaD::registerKeywords(Keywords& keys) {
   keys.addFlag("WALKERS_MPI",false,"Switch on MPI version of multiple walkers - not compatible with WALKERS_* options other than WALKERS_DIR");
   keys.addFlag("ACCELERATION",false,"Set to TRUE if you want to compute the metadynamics acceleration factor.");
   keys.add("optional","ACCELERATION_RFILE","a data file from which the acceleration should be read at the initial step of the simulation");
+  keys.addFlag("CVHD",false,"Use CVHD for the computation of long time scale trajectories.");
+  keys.add("optional","CVHD_RESETTIME","the time CVHD waits before resetting the bias.");
   keys.addFlag("CALC_MAX_BIAS", false, "Set to TRUE if you want to compute the maximum of the metadynamics V(s, t)");
   keys.addFlag("CALC_TRANSITION_BIAS", false, "Set to TRUE if you want to compute a metadynamics transition bias V*(t)");
   keys.add("numbered", "TRANSITIONWELL", "This keyword appears multiple times as TRANSITIONWELLx with x=0,1,2,...,n. Each specifies the coordinates for one well as in transition-tempered metadynamics. At least one must be provided.");
@@ -520,6 +527,7 @@ MetaD::MetaD(const ActionOptions& ao):
   mw_n_(1), mw_dir_(""), mw_id_(0), mw_rstride_(1),
   walkers_mpi(false), mpi_nw_(0), mpi_mw_(0),
   acceleration(false), acc(0.0), acc_restart_mean_(0.0),
+  cvhd(false), cvhd_resettime(0), cvhd_event(0),
   calc_max_bias_(false), max_bias_(0.0),
   calc_transition_bias_(false), transition_bias_(0.0),
 // Interval initialization
@@ -773,6 +781,10 @@ MetaD::MetaD(const ActionOptions& ao):
     parse("ACCELERATION_RFILE", acc_rfilename);
   }
 
+  cvhd=false;
+  parseFlag("CVHD",cvhd);
+  parse("CVHD_RESETTIME",cvhd_resettime);
+
   checkRead();
 
   log.printf("  Gaussian width ");
@@ -927,6 +939,13 @@ MetaD::MetaD(const ActionOptions& ao):
       // Set component based on the read values.
       getPntrToComponent("acc")->set(acc_rmean);
     }
+  }
+  if(cvhd){
+    cvhd_resetwait = 0;
+    if(grid_) error("CVHD cannot be used with GRIDs");
+    log.printf("  CVHD mode is enabled\n");
+    addComponent("event"); componentIsNotPeriodic("event");
+    getPntrToComponent("event")->set(0.0);
   }
   if (calc_max_bias_) {
     if (!grid_) error("Calculating the maximum bias on the fly works only with a grid");
@@ -1620,6 +1639,25 @@ void MetaD::update() {
   }
 
   for(unsigned i=0; i<cv.size(); ++i) cv[i] = getArgument(i);
+
+  if(cvhd){
+    bool isMax = false;
+    for(unsigned i=0; i<cv.size();++i){
+      if(cv[i] >= 1.0) isMax=true;
+      if(cv[i] >= 1.0-4*sigma0_[i]) nowAddAHill=false;
+    }
+    if(isMax){
+      cvhd_resetwait++;
+    } else {
+      cvhd_resetwait=0;
+    }
+    if (cvhd_resetwait >= cvhd_resettime){
+      hills_.clear();
+      cvhd_event++;
+      cvhd_resetwait=0;
+    }
+    getPntrToComponent("event")->set(cvhd_event);
+  }
 
   double vbias=getBiasAndDerivatives(cv);
 
