@@ -87,6 +87,7 @@ Optimizer::Optimizer(const ActionOptions&ao):
   targetdist_output_stride_(0),
   targetdist_proj_output_active_(false),
   targetdist_proj_output_stride_(0),
+  cvhd(false),
   isFirstStep(true)
 {
   std::vector<std::string> bias_labels(0);
@@ -647,6 +648,11 @@ Optimizer::Optimizer(const ActionOptions&ao):
     }
   }
 
+  if(keywords.exists("CVHD")) {
+    cvhd=false;
+    parseFlag("CVHD",cvhd);
+  }
+
   for(unsigned int i=0; i<nbiases_; i++) {
     if(!dynamic_targetdists_[i] && bias_pntrs_[i]->isStaticTargetDistFileOutputActive()) {
       bias_pntrs_[i]->setupTargetDistFileOutput();
@@ -852,6 +858,8 @@ void Optimizer::registerKeywords( Keywords& keys ) {
   keys.add("optional","FES_OUTPUT","how often the FES(s) should be written out to file. Note that the value is given in terms of coefficent iterations.");
   keys.add("optional","FES_PROJ_OUTPUT","how often the projections of the FES(s) should be written out to file. Note that the value is given in terms of coefficent iterations.");
   //
+  keys.addFlag("CVHD",false,"do a CVHD-style reset of the bias after transitions. Should only be used in combination with CVHD CVs.");
+  //
   keys.reserve("optional","REWEIGHT_FACTOR_STRIDE","stride for updating the reweighting factor c(t). Note that the value is given in terms of coefficent iterations.");
   //
   keys.use("RESTART");
@@ -1004,7 +1012,18 @@ void Optimizer::update() {
       bias_pntrs_[i]->updateGradientAndHessian(use_mwalkers_mpi_);
     }
     for(unsigned int i=0; i<ncoeffssets_; i++) {
-      if(gradient_pntrs_[i]->isActive()) {coeffsUpdate(i);}
+      bool dontstop = true;
+      if (cvhd) {
+        if (Coeffs(i).getMaxAbsValue() == 0.0) {
+          if (AuxCoeffs(i).getMaxAbsValue() > 0.0) {
+          AuxCoeffs(i).setAllValuesToZero();
+          dontstop = false;
+          } else {
+            setIterationCounter(0);
+          }
+        }
+      }
+      if(dontstop && gradient_pntrs_[i]->isActive()) {coeffsUpdate(i);}
       else {
         std::string msg = "iteration " + getIterationCounterStr(+1) +
                           " for " + bias_pntrs_[i]->getLabel() +

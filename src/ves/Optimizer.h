@@ -118,6 +118,8 @@ private:
   bool targetdist_proj_output_active_;
   unsigned int targetdist_proj_output_stride_;
   //
+  bool cvhd;
+  //
   bool isFirstStep;
   //
 private:

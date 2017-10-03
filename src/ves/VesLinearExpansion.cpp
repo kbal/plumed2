@@ -287,12 +287,21 @@ private:
   LinearBasisSetExpansion* bias_expansion_pntr_;
   size_t ncoeffs_;
   Value* valueForce2_;
+  //
+  bool cvhd;
+  unsigned cvhd_resetwait;
+  unsigned cvhd_resettime;
+  unsigned cvhd_event;
+  double cvhd_acc;
+  std::string cvhd_tdistfilename;
 public:
   explicit VesLinearExpansion(const ActionOptions&);
   ~VesLinearExpansion();
   void calculate();
   void updateTargetDistributions();
   void restartTargetDistributions();
+  //
+  void applyCVHD(const double,const std::vector<double>&);
   //
   void setupBiasFileOutput();
   void writeBiasToFile();
@@ -327,6 +336,12 @@ void VesLinearExpansion::registerKeywords( Keywords& keys ) {
   keys.use("ARG");
   keys.add("compulsory","BASIS_FUNCTIONS","the label of the one dimensional basis functions that should be used.");
   keys.addOutputComponent("force2","default","the instantaneous value of the squared force due to this bias potential.");
+  //
+  keys.addFlag("CVHD",false,"use CVHD for the computation of long time scale trajectories.");
+  keys.add("optional","CVHD_RESETTIME","the time CVHD waits before resetting the bias.");
+  keys.add("optional","CVHD_INITIAL_TARGETDIST","file name of an initial target distribution, to be used after a CVHD reset. Can only be used in conjunction with a dynamic target distribution.");
+  keys.addOutputComponent("acc","CVHD","the CVHD acceleration factor.");
+  keys.addOutputComponent("event","CVHD","the numer of CVHD events.");
 }
 
 VesLinearExpansion::VesLinearExpansion(const ActionOptions&ao):
@@ -334,10 +349,21 @@ VesLinearExpansion::VesLinearExpansion(const ActionOptions&ao):
   nargs_(getNumberOfArguments()),
   basisf_pntrs_(0),
   bias_expansion_pntr_(NULL),
-  valueForce2_(NULL)
+  valueForce2_(NULL),
+  cvhd(false),
+  cvhd_resettime(0),
+  cvhd_event(0),
+  cvhd_acc(0)
 {
   std::vector<std::string> basisf_labels;
   parseMultipleValues("BASIS_FUNCTIONS",basisf_labels,nargs_);
+
+  parseFlag("CVHD",cvhd);
+  parse("CVHD_RESETTIME",cvhd_resettime);
+  if(keywords.exists("CVHD_INITIAL_TARGETDIST")) {
+    parse("CVHD_INITIAL_TARGETDIST",cvhd_tdistfilename);
+  }
+
   checkRead();
 
   std::string error_msg = "";
@@ -396,6 +422,12 @@ VesLinearExpansion::VesLinearExpansion(const ActionOptions&ao):
 
   addComponent("force2"); componentIsNotPeriodic("force2");
   valueForce2_=getPntrToComponent("force2");
+
+  if(cvhd){
+    log.printf("  CVHD mode is enabled\n");
+    addComponent("acc"); componentIsNotPeriodic("acc");
+    addComponent("event"); componentIsNotPeriodic("event");
+  }
 }
 
 
@@ -433,6 +465,53 @@ void VesLinearExpansion::calculate() {
   if(all_inside) {
     addToSampledAverages(coeffsderivs_values);
   }
+
+  if(cvhd) applyCVHD(bias,cv_values);
+}
+
+void VesLinearExpansion::applyCVHD(const double realBias, const std::vector<double>& cvs) {
+  // These are mostly dummies needed to call getBiasAndForces()
+  std::vector<double> cv_max(nargs_);
+  std::vector<double> forces(nargs_);
+  std::vector<double> coeffsderivs_values(ncoeffs_);
+  bool all_inside = true;
+
+  // Get bias value on edge and perform level shift
+  for(unsigned int k=0; k<nargs_; k++) {
+    cv_max[k]=1.0;
+  }
+  double minBias = bias_expansion_pntr_->getBiasAndForces(cv_max,all_inside,forces,coeffsderivs_values);
+  double effectiveBias = realBias-minBias;
+
+  // Boost factor
+  long int stepno = getStep();
+  if(stepno > 0) {
+    cvhd_acc += exp(effectiveBias/getKbT());
+    const double mean_acc = cvhd_acc/((double) stepno);
+    getPntrToComponent("acc")->set(mean_acc);
+  }
+
+  // Reset coeffs if necessary
+  bool isMax=false;
+  for(unsigned i=0; i<cvs.size();++i) {
+    if(cvs[i] >= 1.0) isMax=true;
+  }
+  if(isMax){
+    cvhd_resetwait++;
+  } else {
+    cvhd_resetwait=0;
+  }
+  if (cvhd_resetwait >= cvhd_resettime) {
+    cvhd_event++;
+    cvhd_resetwait=0;
+    getCoeffsPntr()->setAllValuesToZero();
+    if (cvhd_tdistfilename.length() > 0)  {
+      bias_expansion_pntr_->readInRestartTargetDistribution(cvhd_tdistfilename);
+      bias_expansion_pntr_->restartTargetDistribution();
+      setTargetDistAverages(bias_expansion_pntr_->TargetDistAverages());
+    }
+  }
+  getPntrToComponent("event")->set(cvhd_event);
 }
 
 
