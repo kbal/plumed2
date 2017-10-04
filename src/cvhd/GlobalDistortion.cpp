@@ -90,6 +90,7 @@ BONDDISTORTION GROUPA=1-20 P=8 RMINA=0.15 RCUTA=0.18 RESET_BONDS RESET_MAXDIST=0
 class GlobalDistortion : public Colvar {
   bool pbc, twogroups, reBuildReflist;
   bool reset_ref, useSwitch, use_cutoff;
+  bool do_bondform,
   double ref_val, ref_min, ref_max;
   double reset_maxdist;
   unsigned power;
@@ -117,6 +118,7 @@ void GlobalDistortion::registerKeywords(Keywords& keys){
   Colvar::registerKeywords(keys);
   keys.addFlag("RESET_REF",false,"Reset the computation by generating a new reference list, as specified by the RESET_MAXDIST and RESET_TIME keywords");
   keys.addFlag("USE_CUTOFF",false,"Use the REF_MIN and REF_MAX keywords to limited the number of contacts consider");
+  keys.addFlag("DO_BONDFORM",false,"bias bond formation. Instead of specifying a reference bond length, define a reference nonbonded contact.");
   keys.add("compulsory","P", "8","The p parameter for computing the norm");
   keys.add("compulsory","REF","The reference value from which its multiples the distortions are calculated");
   keys.add("optional","REF_MIN","Don't consider contacts of which the interaction parameter is smaller than this value");
@@ -147,6 +149,7 @@ pbc(true)
   twogroups = true;
   reset_ref = false;
   use_cutoff = false;
+  do_bondform = false;
   reset_time = 0;
   reset_wait = 0;
   nl_stride = 0;
@@ -172,11 +175,14 @@ pbc(true)
 
   parse("NL_STRIDE",nl_stride);
 
+  parseFlag("DO_BONDFORM",do_bondform);
+
   useSwitch = false;
   string sw,errors;
   parse("SWITCH",sw);
   if(sw.length()>0){
     useSwitch = true;
+    if( do_bondform ) error("it does not make sense to use DO_BONDFORM with SWITCH");
     switchingFunction.set(sw,errors);
     if( errors.length()!=0 ) error("problem reading SWITCH keyword : " + errors );
   }
@@ -362,11 +368,11 @@ double GlobalDistortion::pairterm(unsigned i, unsigned j, double ref, vector<Vec
   }
 
   r = distance.modulo();
+  dcoord = 1.0/r
   if(useSwitch) { 
     r = switchingFunction.calculate(r,dcoord);
-  } else {
-    dcoord = 1.0/r;
-    if (r < ref) r = ref*1.00001;
+  } else if ((do_bondform && r > ref) || (!do_bondform && r < ref)) {
+    return 0.0;
   }
   stretch = (r-ref)/ref_val;
   val = pow(stretch, power);
