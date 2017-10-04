@@ -104,6 +104,7 @@ class GlobalDistortion : public Colvar {
   vector<bool> checklist;
   void buildReflist();
   void buildNeigbourlist();
+  double getRefval(double val);
   double pairterm(unsigned i, unsigned j, double ref, vector<Vector>& der, Tensor& viral);
 public:
   explicit GlobalDistortion(const ActionOptions&);
@@ -288,8 +289,7 @@ void GlobalDistortion::buildReflist(){
         if(useSwitch) val = switchingFunction.calculate(val,dummy);
         consider = true;
         if(use_cutoff && (val < ref_min || val > ref_max)) consider = false;
-        val = ref_val*round(val/ref_val);
-        reflist.push_back(val);
+        reflist.push_back(getRefval(val));
         checklist.push_back(consider);
       }
     }
@@ -305,8 +305,7 @@ void GlobalDistortion::buildReflist(){
         if(useSwitch) val = switchingFunction.calculate(val,dummy);
         consider = true;
         if(use_cutoff && (val < ref_min || val > ref_max)) consider = false;
-        val = ref_val*round(val/ref_val);
-        reflist.push_back(val);
+        reflist.push_back(getRefval(val));
         checklist.push_back(consider);
       }
     }
@@ -350,6 +349,13 @@ void GlobalDistortion::buildNeigbourlist(){
         checklist.push_back(consider);
       }
     }
+  }
+}
+
+double GlobalDistortion::getRefval(double val){
+  if (useSwitch) {
+    return ref_val*round(val/ref_val);
+  } else { return ref_val;
   }
 }
 
