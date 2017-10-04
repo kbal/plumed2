@@ -90,7 +90,7 @@ BONDDISTORTION GROUPA=1-20 P=8 RMINA=0.15 RCUTA=0.18 RESET_BONDS RESET_MAXDIST=0
 class GlobalDistortion : public Colvar {
   bool pbc, twogroups, reBuildReflist;
   bool reset_ref, useSwitch, use_cutoff;
-  bool do_bondform,
+  bool do_bondform;
   double ref_val, ref_min, ref_max;
   double reset_maxdist;
   unsigned power;
@@ -368,7 +368,7 @@ double GlobalDistortion::pairterm(unsigned i, unsigned j, double ref, vector<Vec
   }
 
   r = distance.modulo();
-  dcoord = 1.0/r
+  dcoord = 1.0/r;
   if(useSwitch) { 
     r = switchingFunction.calculate(r,dcoord);
   } else if ((do_bondform && r > ref) || (!do_bondform && r < ref)) {
