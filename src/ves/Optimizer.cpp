@@ -1023,7 +1023,7 @@ void Optimizer::update() {
           }
         }
       }
-      if(dontstop && gradient_pntrs_[i]->isActive()) {coeffsUpdate(i);}
+      if(gradient_pntrs_[i]->isActive()) {if (dontstop) coeffsUpdate(i);}
       else {
         std::string msg = "iteration " + getIterationCounterStr(+1) +
                           " for " + bias_pntrs_[i]->getLabel() +
