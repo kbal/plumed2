@@ -351,6 +351,7 @@ VesLinearExpansion::VesLinearExpansion(const ActionOptions&ao):
   bias_expansion_pntr_(NULL),
   valueForce2_(NULL),
   cvhd(false),
+  cvhd_resetwait(0),
   cvhd_resettime(0),
   cvhd_event(0),
   cvhd_acc(0)
