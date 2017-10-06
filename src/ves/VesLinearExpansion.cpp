@@ -425,6 +425,7 @@ void VesLinearExpansion::calculate() {
     applyBiasCutoff(bias,forces,coeffsderivs_values);
     coeffsderivs_values[0]=1.0;
   }
+  if(CVHDActive()) applyCVHD(bias,forces,cv_values);
   double totalForce2 = 0.0;
   for(unsigned int k=0; k<nargs_; k++) {
     setOutputForce(k,forces[k]);
@@ -436,8 +437,6 @@ void VesLinearExpansion::calculate() {
   if(all_inside) {
     addToSampledAverages(coeffsderivs_values);
   }
-
-  if(CVHDActive()) applyCVHD(bias,cv_values);
 }
 
 void VesLinearExpansion::updateTargetDistributions() {

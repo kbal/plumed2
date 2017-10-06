@@ -779,7 +779,7 @@ double VesBias::getBiasCutoffSwitchingFunction(const double bias, double& deriv_
   return value;
 }
 
-void VesBias::applyCVHD(const double realBias, const std::vector<double>& cvs) {
+void VesBias::applyCVHD(const double realBias, std::vector<double>& forces, const std::vector<double>& cvs) {
 
   // See if we are still in the basin
   bool isMax=false;
@@ -808,6 +808,9 @@ void VesBias::applyCVHD(const double realBias, const std::vector<double>& cvs) {
   // Reset coeffs if necessary
   if(isMax){
     cvhd_lagwait++;
+    for(unsigned i=0; i<forces.size();++i) {
+      forces[i]=0.0;
+    }
   } else {
     cvhd_lagwait=0;
   }

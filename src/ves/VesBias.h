@@ -285,7 +285,7 @@ public:
   void applyBiasCutoff(double&, std::vector<double>&) const;
   void applyBiasCutoff(double&, std::vector<double>&, std::vector<double>&) const;
   //
-  void applyCVHD(const double, const std::vector<double>&);
+  void applyCVHD(const double, std::vector<double>&, const std::vector<double>&);
   bool CVHDActive() const {return cvhd_;}
   //
   OFile* getOFile(const std::string& filename, const bool multi_sim_single_file=false, const bool enforce_backup=true);
