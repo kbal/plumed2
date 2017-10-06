@@ -94,7 +94,6 @@ class GlobalDistortion : public Colvar {
   double ref_val, ref_min, ref_max;
   double reset_maxdist;
   unsigned power;
-  unsigned reset_time, reset_wait;
   unsigned nl_stride, nl_wait;
   unsigned num_a, num_b;
   SwitchingFunction switchingFunction;
@@ -126,7 +125,6 @@ void GlobalDistortion::registerKeywords(Keywords& keys){
   keys.add("optional","REF_MAX","Don't consider contacts of which the interaction parameter is larger than this value");
   keys.add("optional","NL_STRIDE","Update the neigbour list every this many steps (based on REF_MIN and REF_MAX)");
   keys.add("optional","RESET_MAXDIST","Maximal distortion before the reference list is reset (if RESET_BONDS is enabled)");
-  keys.add("optional","RESET_TIME","Number of steps to wait before resetting the reference list");
   keys.add("optional","SWITCH","This keyword is used if you want to employ an alternative to the continuous swiching function defined above. "
                                "The following provides information on the \\ref switchingfunction that are available."); 
   keys.add("atoms","GROUPA","First list of atoms");
@@ -151,8 +149,6 @@ pbc(true)
   reset_ref = false;
   use_cutoff = false;
   do_bondform = false;
-  reset_time = 0;
-  reset_wait = 0;
   nl_stride = 0;
   nl_wait = 0;
   if(gb_lista.size() == 0) twogroups = false;
@@ -162,7 +158,6 @@ pbc(true)
 
   parseFlag("RESET_REF",reset_ref);
   parse("RESET_MAXDIST",reset_maxdist);
-  parse("RESET_TIME",reset_time);
 
   parse("REF",ref_val);
   parse("P",power);
@@ -246,18 +241,12 @@ void GlobalDistortion::calculate(){
   }
 
   // bookkeeping. if we've exceeded our distortion limit, prepare for rebuild next time
-  unsigned currstep = getStep();
-  if(reset_ref){
-    if(value < reset_maxdist) reset_wait=currstep;
-    if(currstep-reset_wait >= reset_time){
-      reset_wait = currstep;
-      reBuildReflist = true;
-    }
-  }
+  if(reset_ref && value >= reset_maxdist) reBuildReflist = true;
 
   // neigbour list stuff. should be used when using full connectivity matrix in a large system
+  unsigned currstep = getStep();
   if(nl_stride>0 && currstep-nl_wait>=nl_stride){
-    if(!(reset_ref && value>=reset_maxdist)){
+    if(!reBuildReflist){
       buildNeigbourlist();
       nl_wait=currstep;
     }
