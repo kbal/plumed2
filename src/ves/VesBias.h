@@ -115,6 +115,18 @@ private:
   double bias_current_max_value;
   FermiSwitchingFunction* bias_cutoff_swfunc_pntr_;
   //
+  bool cvhd_;
+  std::vector<double> cvhd_maxvals_;
+  unsigned cvhd_lagwait;
+  unsigned cvhd_lagtime_;
+  unsigned cvhd_updatewait;
+  unsigned cvhd_updatetime_;
+  double cvhd_biasstep_;
+  double cvhd_initialbias_;
+  double cvhd_lambda_;
+  unsigned cvhd_event;
+  double cvhd_acc;
+  //
   std::vector< std::vector<std::string> > projection_args_;
   //
   bool calc_reweightfactor_;
@@ -157,6 +169,7 @@ public:
   static void useGridBinKeywords(Keywords&);
   static void useGridLimitsKeywords(Keywords&);
   static void useBiasCutoffKeywords(Keywords&);
+  static void useCVHDKeywords(Keywords&);
   static void useProjectionArgKeywords(Keywords&);
   static void useReweightFactorKeywords(Keywords&);
   //
@@ -271,6 +284,9 @@ public:
   double getBiasCutoffSwitchingFunction(const double) const;
   void applyBiasCutoff(double&, std::vector<double>&) const;
   void applyBiasCutoff(double&, std::vector<double>&, std::vector<double>&) const;
+  //
+  void applyCVHD(const double, const std::vector<double>&);
+  bool CVHDActive() const {return cvhd_;}
   //
   OFile* getOFile(const std::string& filename, const bool multi_sim_single_file=false, const bool enforce_backup=true);
   //

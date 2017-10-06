@@ -81,6 +81,13 @@ VesBias::VesBias(const ActionOptions&ao):
   bias_cutoff_value_(0.0),
   bias_current_max_value(0.0),
   bias_cutoff_swfunc_pntr_(NULL),
+  cvhd_(false),
+  cvhd_lagwait(0),
+  cvhd_lagtime_(0),
+  cvhd_updatewait(0),
+  cvhd_updatetime_(0),
+  cvhd_event(0),
+  cvhd_acc(0),
   calc_reweightfactor_(false)
 {
   log.printf("  VES bias, please read and cite ");
@@ -188,6 +195,20 @@ VesBias::VesBias(const ActionOptions&ao):
     }
   }
 
+  if(keywords.exists("CVHD")) {
+    parseFlag("CVHD",cvhd_);
+    parseVector("CVHD_MAXVALS",cvhd_maxvals_);
+    parse("CVHD_LAGTIME",cvhd_lagtime_);
+    parse("CVHD_UPDATETIME",cvhd_updatetime_);
+    parse("CVHD_INITIALBIAS",cvhd_initialbias_);
+    parse("CVHD_BIASSTEPSIZE",cvhd_biasstep_);
+    parse("CVHD_BIASLAMBDA",cvhd_lambda_);
+    plumed_massert(cvhd_maxvals_.size()==getNumberOfArguments(),"number of CVHD maximal values must be equal to the number of CVs!");
+    log.printf("  CVHD mode is enabled\n");
+    setupBiasCutoff(cvhd_initialbias_,cvhd_lambda_);
+    addComponent("acc"); componentIsNotPeriodic("acc");
+    addComponent("event"); componentIsNotPeriodic("event");
+  }
 
   if(keywords.exists("PROJ_ARG")) {
     std::vector<std::string> proj_arg;
@@ -273,6 +294,14 @@ void VesBias::registerKeywords( Keywords& keys ) {
   keys.reserve("optional","BIAS_CUTOFF","cutoff the bias such that it only fills the free energy surface up to certain level F_cutoff, here you should give the value of the F_cutoff.");
   keys.reserve("optional","BIAS_CUTOFF_FERMI_LAMBDA","the lambda value used in the Fermi switching function for the bias cutoff (BIAS_CUTOFF), the default value is 10.0.");
   //
+  keys.reserveFlag("CVHD",false,"use CVHD for the computation of long time scale trajectories.");
+  keys.reserve("optional","CVHD_MAXVALS","the list of maximal CV values that denote a transition.");
+  keys.reserve("optional","CVHD_LAGTIME","the time CVHD waits before resetting the bias.");
+  keys.reserve("optional","CVHD_UPDATETIME","the numer of time steps between a bias increase.");
+  keys.reserve("optional","CVHD_BIASSTEPSIZE","the magnitude by which to increase the bias.");
+  keys.reserve("optional","CVHD_INITIALBIAS","the strength of the initial bias.");
+  keys.reserve("optional","CVHD_BIASLAMBDA","the lambda value used to enforce the imposed bias.");
+  //
   keys.reserve("numbered","PROJ_ARG","arguments for doing projections of the FES or the target distribution.");
   //
   keys.reserveFlag("CALC_REWEIGHT_FACTOR",false,"enable the calculation of the reweight factor c(t). You should also give a stride for updating the reweight factor in the optimizer by using the REWEIGHT_FACTOR_STRIDE keyword if the coefficients are updated.");
@@ -311,6 +340,16 @@ void VesBias::useGridLimitsKeywords(Keywords& keys) {
 void VesBias::useBiasCutoffKeywords(Keywords& keys) {
   keys.use("BIAS_CUTOFF");
   keys.use("BIAS_CUTOFF_FERMI_LAMBDA");
+}
+
+void VesBias::useCVHDKeywords(Keywords& keys) {
+  keys.use("CVHD");
+  keys.use("CVHD_MAXVALS");
+  keys.use("CVHD_LAGTIME");
+  keys.use("CVHD_UPDATETIME");
+  keys.use("CVHD_INITIALBIAS");
+  keys.use("CVHD_BIASSTEPSIZE");
+  keys.use("CVHD_BIASLAMBDA");
 }
 
 
@@ -740,6 +779,48 @@ double VesBias::getBiasCutoffSwitchingFunction(const double bias, double& deriv_
   return value;
 }
 
+void VesBias::applyCVHD(const double realBias, const std::vector<double>& cvs) {
+
+  // See if we are still in the basin
+  bool isMax=false;
+  for(unsigned i=0; i<cvs.size();++i) {
+    if(cvs[i] >= cvhd_maxvals_[i]) isMax=true;
+  }
+  if (cvhd_lagwait > 0) isMax=true;
+
+  // Boost factor
+  long int stepno = getStep();
+  if(stepno > 0) {
+    if (isMax) cvhd_acc += 1.0;
+    else cvhd_acc += exp(realBias/getKbT());
+    const double mean_acc = cvhd_acc/((double) stepno);
+    getPntrToComponent("acc")->set(mean_acc);
+  }
+
+  // Update bias cutoff if necessary
+  cvhd_updatewait++;
+  if (!isMax && cvhd_updatewait >= cvhd_updatetime_) {
+    cvhd_updatewait = 0;
+    bias_cutoff_value_ += cvhd_biasstep_;
+    setupBiasCutoff(bias_cutoff_value_,cvhd_lambda_);
+  }
+
+  // Reset coeffs if necessary
+  if(isMax){
+    cvhd_lagwait++;
+  } else {
+    cvhd_lagwait=0;
+  }
+  if (cvhd_lagwait >= cvhd_lagtime_) {
+    cvhd_event++;
+    cvhd_lagwait=0;
+    cvhd_updatewait=0;
+    getCoeffsPntr()->setAllValuesToZero();
+    setupBiasCutoff(cvhd_initialbias_,cvhd_lambda_);
+  }
+  getPntrToComponent("event")->set(cvhd_event);
+}
+
 
 bool VesBias::useMultipleWalkers() const {
   bool use_mwalkers_mpi=false;
@@ -755,7 +836,7 @@ void VesBias::updateReweightFactor() {
     double value = calculateReweightFactor();
     getPntrToComponent("rct")->set(value);
   }
-};
+}
 
 
 double VesBias::calculateReweightFactor() const {
