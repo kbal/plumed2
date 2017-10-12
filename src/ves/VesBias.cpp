@@ -779,20 +779,31 @@ double VesBias::getBiasCutoffSwitchingFunction(const double bias, double& deriv_
   return value;
 }
 
-void VesBias::applyCVHD(const double realBias, std::vector<double>& forces, const std::vector<double>& cvs) {
-
+void VesBias::applyCVHD(const double bias, std::vector<double>& forces, const std::vector<double>& cvs) {
+  //
+  double realBias = bias;
   // See if we are still in the basin
   bool isMax=false;
-  for(unsigned i=0; i<cvs.size();++i) {
+  for(unsigned i=0; i<cvs.size(); ++i) {
     if(cvs[i] >= cvhd_maxvals_[i]) isMax=true;
   }
   if (cvhd_lagwait > 0) isMax=true;
 
+  // adjust bias if necessary
+  if(isMax){
+    cvhd_lagwait++;
+    realBias = 0.0;
+    for(unsigned i=0; i<forces.size(); ++i) {
+      forces[i]=0.0;
+    }
+  } else {
+    cvhd_lagwait=0;
+  }
+
   // Boost factor
   long int stepno = getStep();
   if(stepno > 0) {
-    if (isMax) cvhd_acc += 1.0;
-    else cvhd_acc += exp(realBias/getKbT());
+    cvhd_acc += exp(realBias/getKbT());
     const double mean_acc = cvhd_acc/((double) stepno);
     getPntrToComponent("acc")->set(mean_acc);
   }
@@ -806,14 +817,6 @@ void VesBias::applyCVHD(const double realBias, std::vector<double>& forces, cons
   }
 
   // Reset coeffs if necessary
-  if(isMax){
-    cvhd_lagwait++;
-    for(unsigned i=0; i<forces.size();++i) {
-      forces[i]=0.0;
-    }
-  } else {
-    cvhd_lagwait=0;
-  }
   if (cvhd_lagwait >= cvhd_lagtime_) {
     cvhd_event++;
     cvhd_lagwait=0;
