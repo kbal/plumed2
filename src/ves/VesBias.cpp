@@ -297,7 +297,7 @@ void VesBias::registerKeywords( Keywords& keys ) {
   keys.reserveFlag("CVHD",false,"use CVHD for the computation of long time scale trajectories.");
   keys.reserve("optional","CVHD_MAXVALS","the list of maximal CV values that denote a transition.");
   keys.reserve("optional","CVHD_LAGTIME","the time CVHD waits before resetting the bias.");
-  keys.reserve("optional","CVHD_UPDATETIME","the numer of time steps between a bias increase.");
+  keys.reserve("optional","CVHD_UPDATETIME","the number of time steps between a bias increase.");
   keys.reserve("optional","CVHD_BIASSTEPSIZE","the magnitude by which to increase the bias.");
   keys.reserve("optional","CVHD_INITIALBIAS","the strength of the initial bias.");
   keys.reserve("optional","CVHD_BIASLAMBDA","the lambda value used to enforce the imposed bias.");
