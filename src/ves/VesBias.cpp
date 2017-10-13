@@ -796,8 +796,6 @@ void VesBias::applyCVHD(const double bias, std::vector<double>& forces, const st
     for(unsigned i=0; i<forces.size(); ++i) {
       forces[i]=0.0;
     }
-  } else {
-    cvhd_lagwait=0;
   }
 
   // Boost factor
