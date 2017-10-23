@@ -203,11 +203,13 @@ VesBias::VesBias(const ActionOptions&ao):
     parse("CVHD_INITIALBIAS",cvhd_initialbias_);
     parse("CVHD_BIASSTEPSIZE",cvhd_biasstep_);
     parse("CVHD_BIASLAMBDA",cvhd_lambda_);
-    plumed_massert(cvhd_maxvals_.size()==getNumberOfArguments(),"number of CVHD maximal values must be equal to the number of CVs!");
-    log.printf("  CVHD mode is enabled\n");
-    setupBiasCutoff(cvhd_initialbias_,cvhd_lambda_);
-    addComponent("acc"); componentIsNotPeriodic("acc");
-    addComponent("event"); componentIsNotPeriodic("event");
+    if (cvhd_) {
+      plumed_massert(cvhd_maxvals_.size()==getNumberOfArguments(),"number of CVHD maximal values must be equal to the number of CVs!");
+      log.printf("  CVHD mode is enabled\n");
+      setupBiasCutoff(cvhd_initialbias_,cvhd_lambda_);
+      addComponent("acc"); componentIsNotPeriodic("acc");
+      addComponent("event"); componentIsNotPeriodic("event");
+    }
   }
 
   if(keywords.exists("PROJ_ARG")) {
@@ -350,6 +352,8 @@ void VesBias::useCVHDKeywords(Keywords& keys) {
   keys.use("CVHD_INITIALBIAS");
   keys.use("CVHD_BIASSTEPSIZE");
   keys.use("CVHD_BIASLAMBDA");
+  keys.addOutputComponent("acc","CVHD","the CVHD acceleration factor.");
+  keys.addOutputComponent("event","CVHD","the number of CVHD events.");
 }
 
 
