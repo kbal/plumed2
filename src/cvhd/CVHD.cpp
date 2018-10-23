@@ -79,7 +79,7 @@ void CVHD::registerKeywords(Keywords& keys){
   Function::registerKeywords(keys);
   keys.use("ARG"); keys.use("PERIODIC");
   keys.add("compulsory","CUTOFF","1.0","the cutoff distance");
-  keys.add("compulsory","POWER","1.0","the powers to which you are raising each of the arguments in your function");
+  keys.add("compulsory","P","1.0","the powers to which you are raising each of the arguments in your function");
 }
 
 CVHD::CVHD(const ActionOptions&ao):
@@ -89,7 +89,7 @@ Function(ao)
   cutoff = 1.0;
   power = 1.0;
   parse("CUTOFF",cutoff);
-  parse("POWER",power);
+  parse("P",power);
 
   addValueWithDerivatives();
   checkRead();
