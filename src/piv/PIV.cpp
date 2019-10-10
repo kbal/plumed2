@@ -20,7 +20,6 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include "core/ActionWithVirtualAtom.h"
 #include "tools/NeighborList.h"
 #include "tools/SwitchingFunction.h"
-//#include "tools/Tools.h"
 #include "tools/PDB.h"
 #include "tools/Pbc.h"
 #include "tools/Stopwatch.h"
@@ -36,7 +35,7 @@ namespace PLMD
 namespace piv
 {
 
-//+PLUMEDOC COLVAR PIV
+//+PLUMEDOC PIVMOD_COLVAR PIV
 /*
 Calculates the PIV-distance.
 
@@ -52,9 +51,9 @@ and prints the results in a file named colvar.
 Three atoms (PIVATOMS=3) with names (pdb file) A B and C are used to construct the PIV and all PIV blocks (AA, BB, CC, AB, AC, BC) are considered.
 SFACTOR is a scaling factor that multiplies the contribution to the PIV-distance given by the single PIV block.
 NLIST sets the use of neighbor lists for calculating atom-atom distances.
-The SWITCH keyword specifies the perameters of the switching function that transforms atom-atom distances.
-SORT=1 meand that the PIV block elements are sorted (SORT=0 no sorting.)
-Values for SORT, SFACTOR and Neighborlist parameters have to be specified for each block.
+The SWITCH keyword specifies the parameters of the switching function that transforms atom-atom distances.
+SORT=1 means that the PIV block elements are sorted (SORT=0 no sorting.)
+Values for SORT, SFACTOR and the neighbor list parameters have to be specified for each block.
 The order is the following: AA,BB,CC,AB,AC,BC. If ONLYDIRECT (ONLYCROSS) is used the order is AA,BB,CC (AB,AC,BC).
 The sorting operation within each PIV block is performed using the counting sort algorithm, PRECISION specifies the size of the counting array.
 
@@ -187,14 +186,11 @@ class PIV      : public Colvar
 private:
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
-  /// The stopwatch that times the different parts of the calculation
   Stopwatch& stopwatch=*stopwatch_fwd;
   int updatePIV;
   unsigned Nprec,Natm,Nlist,NLsize;
-  // Fvol: volume scaling factor for distances
   double Fvol,Vol0,m_PIVdistance;
   std::string ref_file;
-  // std:: vector<string> atype;
   NeighborList *nlall;
   std::vector<SwitchingFunction> sfs;
   std::vector<std:: vector<double> > rPIV;
@@ -204,15 +200,14 @@ private:
   std::vector<bool> dosort;
   std::vector<Vector> compos;
   std::vector<string> sw;
-  //std::vector<std:: vector<unsigned> > com2atoms;
   std::vector<NeighborList *> nl;
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
   Tensor m_virial;
-  bool Svol,Sfac,cross,direct,doneigh,test,CompDer,com;
+  bool Svol,cross,direct,doneigh,test,CompDer,com;
 public:
   static void registerKeywords( Keywords& keys );
-  PIV(const ActionOptions&);
+  explicit PIV(const ActionOptions&);
   ~PIV();
   // active methods:
   virtual void calculate();
@@ -229,23 +224,23 @@ void PIV::registerKeywords( Keywords& keys )
            "Details of the various switching "
            "functions you can use are provided on \\ref switchingfunction.");
   keys.add("compulsory","PRECISION","the precision for approximating reals with integers in sorting.");
-  keys.add("compulsory","REF_FILE","PDB file name that contains the i-th reference structure.");
+  keys.add("compulsory","REF_FILE","PDB file name that contains the \\f$i\\f$th reference structure.");
   keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV.");
   keys.add("compulsory","SORT","Whether to sort or not the PIV block.");
-  keys.add("compulsory","ATOMTYPES","The atomtypes to use for PIV.");
+  keys.add("compulsory","ATOMTYPES","The atom types to use for PIV.");
   keys.add("optional","SFACTOR","Scale the PIV-distance by such block-specific factor");
   keys.add("optional","VOLUME","Scale atom-atom distances by the cubic root of the cell volume. The input volume is used to scale the R_0 value of the switching function. ");
-  keys.add("optional","UPDATEPIV","Frequency (timesteps) at which the PIV is updated.");
+  keys.add("optional","UPDATEPIV","Frequency (in steps) at which the PIV is updated.");
   keys.addFlag("TEST",false,"Print the actual and reference PIV and exit");
-  keys.addFlag("COM",false,"Use centers of mass of groups of atoms instead of atoms as secified in the Pdb file");
+  keys.addFlag("COM",false,"Use centers of mass of groups of atoms instead of atoms as specified in the Pdb file");
   keys.addFlag("ONLYCROSS",false,"Use only cross-terms (A-B, A-C, B-C, ...) in PIV");
   keys.addFlag("ONLYDIRECT",false,"Use only direct-terms (A-A, B-B, C-C, ...) in PIV");
   keys.addFlag("DERIVATIVES",false,"Activate the calculation of the PIV for every class (needed for numerical derivatives).");
-  keys.addFlag("NLIST",false,"Use a neighbour list for distance calculations.");
+  keys.addFlag("NLIST",false,"Use a neighbor list for distance calculations.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
-  keys.addFlag("TIMER",false,"Permorm timing analysis on heavy loops.");
-  keys.add("optional","NL_CUTOFF","Neighbour lists cutoff.");
-  keys.add("optional","NL_STRIDE","Update neighbour lists every NL_STRIDE steps.");
+  keys.addFlag("TIMER",false,"Perform timing analysis on heavy loops.");
+  keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
+  keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
   keys.reset_style("SWITCH","compulsory");
 }
@@ -253,36 +248,34 @@ void PIV::registerKeywords( Keywords& keys )
 PIV::PIV(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
-  timer(false),
   serial(false),
+  timer(false),
   updatePIV(1),
-  Svol(false),
-  Sfac(false),
-  cross(true),
-  direct(true),
-  doneigh(false),
-  CompDer(false),
-  com(false),
-  test(false),
   Nprec(1000),
   Natm(1),
-  NLsize(1),
   Nlist(1),
+  NLsize(1),
   Fvol(1.),
   Vol0(0.),
   m_PIVdistance(0.),
-  m_deriv(std:: vector<Vector>(1)),
-  nl(std:: vector<NeighborList *>(Nlist)),
   rPIV(std:: vector<std:: vector<double> >(Nlist)),
   scaling(std:: vector<double>(Nlist)),
   r00(std:: vector<double>(Nlist)),
-  sw(std:: vector<string>(Nlist)),
   nl_skin(std:: vector<double>(Nlist)),
   fmass(std:: vector<double>(Nlist)),
   dosort(std:: vector<bool>(Nlist)),
+  compos(std:: vector<Vector>(NLsize)),
+  sw(std:: vector<string>(Nlist)),
+  nl(std:: vector<NeighborList *>(Nlist)),
   nlcom(std:: vector<NeighborList *>(NLsize)),
-  compos(std:: vector<Vector>(NLsize))
-//com2atoms(std:: vector<std:: vector<unsigned> >(Nlist))
+  m_deriv(std:: vector<Vector>(1)),
+  Svol(false),
+  cross(true),
+  direct(true),
+  doneigh(false),
+  test(false),
+  CompDer(false),
+  com(false)
 {
   log << "Starting PIV Constructor\n";
 
@@ -306,7 +299,6 @@ PIV::PIV(const ActionOptions&ao):
     log << "Serial PIV construction\n";
   } else     {
     log << "Parallel PIV construction\n";
-    unsigned rank=comm.Get_rank();
   }
 
   // Derivatives
@@ -382,7 +374,6 @@ PIV::PIV(const ActionOptions&ao):
   NLsize=mypdb.getAtomNumbers().size();
   // In the following P stands for Point (either an Atom or a COM)
   unsigned resnum=0;
-  unsigned Pnum=0;
   // Presind (array size: number of residues) contains the contains the residue number
   //   this is because the residue numbers may not alwyas be ordered from 1 to resnum
   std:: vector<unsigned> Presind;
@@ -560,8 +551,6 @@ PIV::PIV(const ActionOptions&ao):
   }
   // Calculate COM masses once and for all from lists
   if(com) {
-    unsigned count=0;
-    //log << "Computing COM masses  \n";
     for(unsigned j=0; j<compos.size(); j++) {
       double commass=0.;
       for(unsigned i=0; i<nlcom[j]->getFullAtomList().size(); i++) {
@@ -627,7 +616,7 @@ PIV::PIV(const ActionOptions&ao):
         double r0;
         vector<string> data=Tools::getWords(sw[j]);
         data.erase(data.begin());
-        bool tmp=Tools::parse(data,"R_0",r0);
+        Tools::parse(data,"R_0",r0);
         std::string old_r0; Tools::convert(r0,old_r0);
         r0*=Fvol;
         std::string new_r0; Tools::convert(r0,new_r0);
@@ -701,7 +690,7 @@ PIV::PIV(const ActionOptions&ao):
           lmt1+=1;
         }
       }
-      log.printf("       |%10i|%15i|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
+      log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
     }
   }
 
@@ -773,7 +762,7 @@ void PIV::calculate()
         double r0;
         vector<string> data=Tools::getWords(sw[j]);
         data.erase(data.begin());
-        bool tmp=Tools::parse(data,"R_0",r0);
+        Tools::parse(data,"R_0",r0);
         std::string old_r0; Tools::convert(r0,old_r0);
         r0*=Fvol;
         std::string new_r0; Tools::convert(r0,new_r0);
@@ -808,7 +797,7 @@ void PIV::calculate()
           lmt1+=1;
         }
       }
-      log.printf("       |%10i|%15i|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
+      log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
     }
     log << "\n";
   }
