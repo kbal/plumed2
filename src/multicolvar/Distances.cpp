@@ -138,7 +138,7 @@ PLUMED_REGISTER_ACTION(Distances,"DISTANCES")
 
 void Distances::registerKeywords( Keywords& keys ) {
   MultiColvarBase::registerKeywords( keys );
-  keys.use("ALT_MIN"); keys.use("LOWEST"); keys.use("HIGHEST"), keys.use("PNORM");
+  keys.use("ALT_MIN"); keys.use("LOWEST"); keys.use("HIGHEST");
   keys.use("MEAN"); keys.use("MIN"); keys.use("MAX"); keys.use("LESS_THAN"); // keys.use("DHENERGY");
   keys.use("MORE_THAN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS");
   keys.add("numbered","ATOMS","the atoms involved in each of the distances you wish to calculate. "
