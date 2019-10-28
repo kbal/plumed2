@@ -19,9 +19,9 @@
    You should have received a copy of the GNU Lesser General Public License
    along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "vesselbase/VesselRegister.h"
-#include "vesselbase/FunctionVessel.h"
-#include "vesselbase/ActionWithVessel.h"
+#include "VesselRegister.h"
+#include "FunctionVessel.h"
+#include "ActionWithVessel.h"
 
 namespace PLMD {
 namespace vesselbase {
