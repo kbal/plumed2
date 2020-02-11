@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2011-2019 The plumed team
+   Copyright (c) 2011-2020 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -316,11 +316,6 @@ vector<string> Tools::ls(const string&d) {
 #if defined(__PLUMED_HAS_READDIR_R)
       readdir_r(dir,&ent,&res);
 #else
-// cppcheck complains about this:
-// (portability) Non reentrant function 'readdir' called. For threadsafe applications it is recommended to use the reentrant replacement function 'readdir_r'.
-// since we use it only if readdir_r is not available, I suppress the warning
-// GB
-// cppcheck-suppress readdirCalled
       res=readdir(dir);
 #endif
       if(!res) break;

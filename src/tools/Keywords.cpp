@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2019 The plumed team
+   Copyright (c) 2012-2020 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -645,6 +645,21 @@ bool Keywords::outputComponentExists( const std::string& name, const bool& custo
     if( sname==cnames[i] ) return true;
   }
   return false;
+}
+
+void Keywords::removeComponent( const std::string& name ) {
+  bool found=false; unsigned j=0, n=0;
+
+  while(true) {
+    for(j=0; j<cnames.size(); j++) if(cnames[j]==name)break;
+    if(j<cnames.size()) {
+      cnames.erase(cnames.begin()+j);
+      found=true;
+    } else break;
+  }
+  // Delete documentation, type and so on from the description
+  cdocs.erase(name); ckey.erase(name);
+  plumed_massert(found,"You are trying to remove " + name + " a component that isn't there");
 }
 
 }
