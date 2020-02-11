@@ -110,7 +110,7 @@ void CoordinationNumbers::registerKeywords( Keywords& keys ) {
            "When this keyword is present you no longer need the NN, MM, D_0 and R_0 keywords.");
   // Use actionWithDistributionKeywords
   keys.use("MEAN"); keys.use("MORE_THAN"); keys.use("LESS_THAN"); keys.use("MAX");
-  keys.use("MIN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS");
+  keys.use("MIN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS"); keys.use("PNORM");
   keys.use("ALT_MIN"); keys.use("LOWEST"); keys.use("HIGHEST");
 }
 

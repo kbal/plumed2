@@ -140,7 +140,7 @@ void Distances::registerKeywords( Keywords& keys ) {
   MultiColvarBase::registerKeywords( keys );
   keys.use("ALT_MIN"); keys.use("LOWEST"); keys.use("HIGHEST");
   keys.use("MEAN"); keys.use("MIN"); keys.use("MAX"); keys.use("LESS_THAN"); // keys.use("DHENERGY");
-  keys.use("MORE_THAN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS");
+  keys.use("MORE_THAN"); keys.use("BETWEEN"); keys.use("HISTOGRAM"); keys.use("MOMENTS"); keys.use("PNORM");
   keys.add("numbered","ATOMS","the atoms involved in each of the distances you wish to calculate. "
            "Keywords like ATOMS1, ATOMS2, ATOMS3,... should be listed and one distance will be "
            "calculated for each ATOM keyword you specify (all ATOM keywords should "
